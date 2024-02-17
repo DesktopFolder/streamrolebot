@@ -266,6 +266,21 @@ async def set_streaming_role(interaction: discord.Interaction, role: discord.Rol
 
 
 @client.tree.command()
+async def streambot_debug(interaction: discord.Interaction, argument: Optional[str]):
+    gd = interaction.guild
+    if gd is None:
+        return await respond(interaction, "Guild is `None` - this can't be used outside of a server.")
+    gid = gd.id
+
+    if argument is None:
+        s = live_users.get(gid, set())
+        users = [f"<@{uid}>" for uid in s]
+        return await respond(interaction, f"Bot is currently aware of {len(s)} streaming users: {users}")
+    else:
+        return await respond(interaction, "Arguments don't do anything, friend...")
+
+
+@client.tree.command()
 async def live(interaction: discord.Interaction, user: Optional[discord.Member]):
     if interaction.guild is None:
         return await interaction.response.send_message("This cannot be called outside a guild.", ephemeral=True)
