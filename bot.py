@@ -4,6 +4,7 @@ from discord.ext.commands import has_permissions
 import pickle
 from os.path import isfile
 from typing import Optional
+import logging as l
 
 
 """
@@ -12,6 +13,10 @@ Logged in as StreamRoleBot#3286 (ID:)
 (<CustomActivity name='C++ folder' emoji=<PartialEmoji animated=False name='📁' id=None>>, <Streaming name='NON EXISTENT STREAM JUST TESTING SOMETHING SORRY'>)
 (<CustomActivity name='C++ folder' emoji=<PartialEmoji animated=False name='📁' id=None>>,)
 """
+
+
+async def respond(interaction: discord.Interaction, *args, **kwargs):
+    return await interaction.response.send_message(*args, **kwargs, ephemeral=True)
 
 
 guild_roles: dict[int, discord.Role] = dict()
@@ -114,7 +119,10 @@ class BotState:
         if r is None:
             return False
 
-        await member.remove_roles(r)
+        try:
+            await member.remove_roles(r)
+        except:
+            pass
         guild.set_inactive(mid)
 
         self.dirty = True
@@ -216,6 +224,7 @@ async def on_presence_update(_, after: discord.Member):
 
     # Get the user's current activities.
     act = get_valid_activity(after.activities)
+    gid = after.guild.id
 
     if botstate.is_active(after):
         # We have previously set this user to active.
@@ -230,14 +239,18 @@ async def on_presence_update(_, after: discord.Member):
         act = get_valid_activity(after.activities)
         if act is not None:
             # They are live.
-            live_users.get(after.guild.id, set()).add(after.id)
+            if gid not in live_users:
+                live_users[gid] = set()
+            live_users[gid].add(after.id)
 
         if act:
             await botstate.activate(after)
 
     # If they are not streaming, then store that information.
-    if act is None:
-        live_users.get(after.guild.id, set()).remove(after.id)
+    if act is None and gid in live_users:
+        users = live_users[gid]
+        if after.id in users:
+            users.remove(after.id)
 
     botstate.save_if()
 
@@ -269,6 +282,7 @@ async def live(interaction: discord.Interaction, user: Optional[discord.Member])
         return await interaction.response.send_message("This member is not a member (bot error?)", ephemeral=True)
 
     if target.id not in live_users.get(target.guild.id, set()) and get_valid_activity(target.activities) is None:
+        l.debug(f'{target.id} not present in live_users ({target.guild.id}: {live_users.get(target.guild.id)})')
         return await interaction.response.send_message("This user is not live.", ephemeral=True)
 
     await botstate.activate(target)
@@ -279,12 +293,12 @@ async def live(interaction: discord.Interaction, user: Optional[discord.Member])
 @client.tree.command()
 async def not_live(interaction: discord.Interaction):
     if interaction.guild is None:
-        return await interaction.response.send_message("This cannot be called outside a guild.", ephemeral=True)
+        return await respond(interaction, "This cannot be called outside a guild.")
     if not await botstate.validate(interaction.guild):
-        return await interaction.response.send_message("You have not set up a role.", ephemeral=True)
+        return await respond(interaction, "You have not set up a role.")
 
     if type(interaction.user) != discord.Member:
-        return await interaction.response.send_message("This member is not a member (bot error?)", ephemeral=True)
+        return await respond(interaction, "This member is not a member (bot error?)")
 
     await botstate.deactivate(interaction.user)
     botstate.save_if()
@@ -295,6 +309,8 @@ def main(args):
     if 'testing' in args:
         global testing
         testing = True
+    if 'debug' in args:
+        l.basicConfig(level=l.DEBUG)
     client.run(open("token.txt").read().strip())
 
 
