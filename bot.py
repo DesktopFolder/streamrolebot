@@ -15,6 +15,7 @@ Logged in as StreamRoleBot#3286 (ID:)
 
 
 guild_roles: dict[int, discord.Role] = dict()
+live_users: dict[int, set] = dict()
 
 
 class GuildState:
@@ -208,20 +209,35 @@ def get_valid_activity(activities: tuple[discord.activity.ActivityTypes]) -> Opt
 
 @client.event
 async def on_presence_update(_, after: discord.Member):
+    global live_users
+
     if not await botstate.validate(after.guild):
         return
+
+    # Get the user's current activities.
+    act = get_valid_activity(after.activities)
 
     if botstate.is_active(after):
         # We have previously set this user to active.
         # Only deactivate them if they are not streaming.
-        act = get_valid_activity(after.activities)
         if act is None:
             await botstate.deactivate(after)
     else:
         # Activate them if they are streaming with a valid title.
+        # Note - currently a bug, the user cannot opt out of this.
+        # Not really an issue probably. This only occurs if AA / advancements
+        # are in the title, so can simply remove those. Or fix the code.
         act = get_valid_activity(after.activities)
+        if act is not None:
+            # They are live.
+            live_users.get(after.guild.id, set()).add(after.id)
+
         if act:
             await botstate.activate(after)
+
+    # If they are not streaming, then store that information.
+    if act is None:
+        live_users.get(after.guild.id, set()).remove(after.id)
 
     botstate.save_if()
 
@@ -239,9 +255,9 @@ async def set_streaming_role(interaction: discord.Interaction, role: discord.Rol
 @client.tree.command()
 async def live(interaction: discord.Interaction, user: Optional[discord.Member]):
     if interaction.guild is None:
-        return await interaction.response.send_message("This cannot be called outside a guild.")
+        return await interaction.response.send_message("This cannot be called outside a guild.", ephemeral=True)
     if not await botstate.validate(interaction.guild):
-        return await interaction.response.send_message("You have not set up a role.")
+        return await interaction.response.send_message("You have not set up a role.", ephemeral=True)
 
     target: discord.User | discord.Member
     if user is not None:
@@ -252,12 +268,27 @@ async def live(interaction: discord.Interaction, user: Optional[discord.Member])
     if type(target) != discord.Member:
         return await interaction.response.send_message("This member is not a member (bot error?)", ephemeral=True)
 
-    if get_valid_activity(target.activities) is None:
+    if target.id not in live_users.get(target.guild.id, set()) and get_valid_activity(target.activities) is None:
         return await interaction.response.send_message("This user is not live.", ephemeral=True)
 
     await botstate.activate(target)
     botstate.save_if()
     return await interaction.response.send_message("Activated the user.", ephemeral=True)
+
+
+@client.tree.command()
+async def not_live(interaction: discord.Interaction):
+    if interaction.guild is None:
+        return await interaction.response.send_message("This cannot be called outside a guild.", ephemeral=True)
+    if not await botstate.validate(interaction.guild):
+        return await interaction.response.send_message("You have not set up a role.", ephemeral=True)
+
+    if type(interaction.user) != discord.Member:
+        return await interaction.response.send_message("This member is not a member (bot error?)", ephemeral=True)
+
+    await botstate.deactivate(interaction.user)
+    botstate.save_if()
+    return await interaction.response.send_message("Role removed if present.", ephemeral=True)
 
 
 def main(args):
