@@ -205,7 +205,7 @@ def get_active_title(activities: tuple[discord.activity.ActivityTypes]) -> Optio
 
 def title_check(title: str):
     import re
-    return re.search(r'(\baa\b|advancements)', title.lower()) is not None
+    return re.search(r'(\baa\b|advancements|todos los logro)', title.lower()) is not None
 
 
 def get_valid_activity(activities: tuple[discord.activity.ActivityTypes]) -> Optional[bool]:
