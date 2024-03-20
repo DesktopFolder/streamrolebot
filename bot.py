@@ -306,16 +306,22 @@ async def live(interaction: discord.Interaction, user: Optional[discord.Member])
 
 
 @client.tree.command()
-async def not_live(interaction: discord.Interaction):
+async def not_live(interaction: discord.Interaction, user: Optional[discord.Member]):
     if interaction.guild is None:
         return await respond(interaction, "This cannot be called outside a guild.")
     if not await botstate.validate(interaction.guild):
         return await respond(interaction, "You have not set up a role.")
 
-    if type(interaction.user) != discord.Member:
+    target: discord.User | discord.Member
+    if user is not None:
+        target = user
+    else:
+        target = interaction.user
+
+    if type(target) != discord.Member:
         return await respond(interaction, "This member is not a member (bot error?)")
 
-    await botstate.deactivate(interaction.user)
+    await botstate.deactivate(target)
     botstate.save_if()
     return await interaction.response.send_message("Role removed if present.", ephemeral=True)
 
