@@ -6,6 +6,31 @@ from os.path import isfile
 from typing import Optional
 import logging as l
 
+TITLE_REGEX = r'(\baa\b|advancements|todos los logro)'
+HELP_STRING = f"""***StreamRoleBot FAQ / Help***
+
+StreamRoleBot automatically gives users the Streaming role if their stream title matches the following case-insensitive regex: `{TITLE_REGEX}`.
+
+StreamRoleBot additionally provides a `/live` command that can set a user to live even if their title does not match the regex. The 'Streaming' role will remain until that user stops streaming.
+
+These features rely on Discord activity status in order to ensure:
+- That users will have the role properly/automatically removed when they go offline
+- That other users can access your stream by clicking on your name -> 'watch'
+
+***FAQ***
+
+**Discord cannot tell that I am streaming (I don't see the purple activity icon)**
+
+This is usually caused by not having 'Streamer Mode' enabled in Discord. Streamer Mode disables some notifications while active but is otherwise mostly harmless. You can activate this or set it up to activate automatically in Settings > Streamer Mode.
+
+**Discord shows me as live (I see the purple activity icon) but `/streambot_debug` does not list me as a detected 'live' server member.**
+
+This can be caused by a variety of issues. Check the following:
+- That you do not have server-specific privacy settings enabled for activities
+- That you do not have general privacy settings enabled for activities
+- That your stream title is not more than 128 characters long
+"""
+
 
 """
 Logged in as StreamRoleBot#3286 (ID:)
@@ -205,7 +230,7 @@ def get_active_title(activities: tuple[discord.activity.ActivityTypes]) -> Optio
 
 def title_check(title: str):
     import re
-    return re.search(r'(\baa\b|advancements|todos los logro)', title.lower()) is not None
+    return re.search(TITLE_REGEX, title.lower()) is not None
 
 
 def get_valid_activity(activities: tuple[discord.activity.ActivityTypes]) -> Optional[bool]:
@@ -279,6 +304,10 @@ async def streambot_debug(interaction: discord.Interaction, argument: Optional[s
     else:
         return await respond(interaction, "Arguments don't do anything, friend...")
 
+@client.tree.command()
+async def streambot_help(interaction: discord.Interaction):
+    await respond(interaction, HELP_STRING)
+
 
 @client.tree.command()
 async def live(interaction: discord.Interaction, user: Optional[discord.Member]):
@@ -297,8 +326,8 @@ async def live(interaction: discord.Interaction, user: Optional[discord.Member])
         return await interaction.response.send_message("This member is not a member (bot error?)", ephemeral=True)
 
     if target.id not in live_users.get(target.guild.id, set()) and get_valid_activity(target.activities) is None:
-        l.debug(f'{target.id} not present in live_users ({target.guild.id}: {live_users.get(target.guild.id)})')
-        return await interaction.response.send_message("This user is not live.", ephemeral=True)
+        # l.debug(f'{target.id} not present in live_users ({target.guild.id}: {live_users.get(target.guild.id)})')
+        return await interaction.response.send_message("This user is not live. For help, see `/streambot_help`.", ephemeral=True)
 
     await botstate.activate(target)
     botstate.save_if()
