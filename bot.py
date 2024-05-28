@@ -153,7 +153,7 @@ class BotState:
         if not self.dirty:
             return
         import json
-        with open('data.json') as file:
+        with open('data.json', 'w') as file:
             self.dirty = False
             json.dump(self.as_dict(), file, indent=2)
 
