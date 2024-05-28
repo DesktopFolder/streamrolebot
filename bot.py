@@ -79,7 +79,7 @@ class BotState:
     @staticmethod
     def from_dict(d) -> 'BotState':
         b = BotState()
-        b.guilds = { gid: GuildState.from_dict(gdata) for gid, gdata in d['guilds'].items() }
+        b.guilds = { gdata['gid']: GuildState.from_dict(gdata) for gdata in d['guilds'].values() }
         b.dirty = d['dirty']
         b.version = d['version']
         return b
@@ -88,7 +88,6 @@ class BotState:
         if guild.id not in self.guilds:
             # If the guild doesn't exist, it's invalid.
             # Guilds only exist once /set_streaming_role is called.
-            print(f'{guild.id} not in {list(self.guilds.keys())}')
             return False
         return await self.guilds[guild.id].validate(guild)
 
