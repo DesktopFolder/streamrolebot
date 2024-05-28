@@ -88,6 +88,7 @@ class BotState:
         if guild.id not in self.guilds:
             # If the guild doesn't exist, it's invalid.
             # Guilds only exist once /set_streaming_role is called.
+            print(f'{guild.id} not in {list(self.guilds.keys())}')
             return False
         return await self.guilds[guild.id].validate(guild)
 
