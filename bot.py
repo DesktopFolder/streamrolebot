@@ -22,6 +22,16 @@ class GuildState:
         self.guild_id = guild_id
         self.role: int | None = None
 
+    def as_dict(self) -> dict:
+        return {'members': self.members, 'gid': self.guild_id, 'role': self.role}
+
+    @staticmethod
+    def from_dict(d: dict) -> 'GuildState':
+        gs = GuildState(d['gid'])
+        gs.role = d['role']
+        gs.members = d['members']
+        return gs
+
     def is_active(self, member_id: int) -> bool:
         return self.members.get(member_id, False)
 
@@ -61,6 +71,17 @@ class BotState:
         self.guilds: dict[int, GuildState] = dict()
         self.dirty = False
         self.version = 1
+
+    def as_dict(self) -> dict:
+        return { 'guilds': { gid: g.as_dict() for gid, g in self.guilds.items() }, 'dirty': self.dirty, 'version': self.version }
+
+    @staticmethod
+    def from_dict(d) -> 'BotState':
+        b = BotState()
+        b.guilds = { gid: GuildState.from_dict(gdata) for gid, gdata in d['guilds'] }
+        b.dirty = d['dirty']
+        b.version = d['version']
+        return b
 
     async def validate(self, guild: discord.Guild):
         if guild.id not in self.guilds:
@@ -131,16 +152,18 @@ class BotState:
     def save_if(self):
         if not self.dirty:
             return
-        with open('botstate.pkl', 'wb') as file:
+        import json
+        with open('data.json') as file:
             self.dirty = False
-            pickle.dump(self, file)
+            json.dump(self.as_dict(), file, indent=2)
 
     def __del__(self):
-        # self.save_if()
         pass
 
-
-if isfile('botstate.pkl'):
+if isfile('data.json'):
+    import json
+    botstate = BotState.from_dict(json.load(open('data.json')))
+elif isfile('botstate.pkl'):
     botstate = pickle.load(open('botstate.pkl', 'rb'))
     assert type(botstate) == BotState
 else:
@@ -196,16 +219,29 @@ def get_active_title(activities: tuple[discord.activity.ActivityTypes]) -> Optio
     return None
 
 
-def title_check(title: str):
+def is_aa_title(title: str):
+    """
+    is_aa_title(str):
+      Determines if a title is considered "an AA title".
+      Current requirements:
+      - If it matches strings.TITLE_REGEX, AND
+      - If it does not contain "!nobot"
+    """
     import re
-    return re.search(TITLE_REGEX, title.lower()) is not None
-
+    title = title.lower()
+    # If we don't match, it's not an AA title.
+    if re.search(TITLE_REGEX, title) is None:
+        return False
+    # If they've disabled it, it's not an AA title.
+    if '!nobot' in title:
+        return False
+    return True
 
 def get_valid_activity(activities: tuple[discord.activity.ActivityTypes]) -> Optional[bool]:
     title = get_active_title(activities)
     if title is None:
         return None # The user is not active.
-    return title_check(title)
+    return is_aa_title(title)
 
 
 @client.event
@@ -294,7 +330,6 @@ async def live(interaction: discord.Interaction, user: Optional[discord.Member])
         return await interaction.response.send_message("This member is not a member (bot error?)", ephemeral=True)
 
     if target.id not in live_users.get(target.guild.id, set()) and get_valid_activity(target.activities) is None:
-        # l.debug(f'{target.id} not present in live_users ({target.guild.id}: {live_users.get(target.guild.id)})')
         return await interaction.response.send_message("This user is not live. For help, see `/streambot_help`.", ephemeral=True)
 
     await botstate.activate(target)
