@@ -27,6 +27,7 @@ class GuildState:
 
     @staticmethod
     def from_dict(d: dict) -> 'GuildState':
+        print(f'Restoring guild state from: {d}')
         gs = GuildState(d['gid'])
         gs.role = d['role']
         gs.members = d['members']
