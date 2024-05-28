@@ -78,7 +78,7 @@ class BotState:
     @staticmethod
     def from_dict(d) -> 'BotState':
         b = BotState()
-        b.guilds = { gid: GuildState.from_dict(gdata) for gid, gdata in d['guilds'] }
+        b.guilds = { gid: GuildState.from_dict(gdata) for gid, gdata in d['guilds'].items() }
         b.dirty = d['dirty']
         b.version = d['version']
         return b
