@@ -1,3 +1,5 @@
 # StreamRoleBot
 
-Adds a streaming role to users in the All Advancements Discord server, when they are live, and their stream title is appropriate.
+A custom bot created for the All Advancements Discord server.
+
+Gives server members the 'Streaming' role when they are playing All Advancements.
